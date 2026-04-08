@@ -1,0 +1,132 @@
+use serde::{Deserialize, Serialize};
+use wide::f32x8;
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub enum Metrics {
+    Cosine,
+    Euclidean,
+    DotProduct,
+}
+
+impl Metrics {
+    #[inline]
+    pub fn calculate(&self, a: &[f32], b: &[f32]) -> f32 {
+        match self {
+            Metrics::Cosine => cosine_similarity(a, b),
+            Metrics::Euclidean => euclidean_similarity(a, b),
+            Metrics::DotProduct => dot_product(a, b),
+        }
+    }
+
+    #[inline]
+    pub fn string(&self) -> String {
+        match self {
+            Metrics::Cosine => "COSINE".to_string(),
+            Metrics::Euclidean => "EUCLIDEAN".to_string(),
+            Metrics::DotProduct => "DOT_PRODUCT".to_string(),
+        }
+    }
+}
+
+#[inline]
+/// SIMD-optimized cosine similarity using 8-wide f32 vectors
+/// Returns value in [-1, 1]
+pub fn cosine_similarity(a: &[f32], b: &[f32]) -> f32 {
+    assert_eq!(a.len(), b.len(), "Vector dimensions must match");
+
+    let chunks = a.len() / 8;
+    let mut dot = f32x8::ZERO;
+    let mut norm_a = f32x8::ZERO;
+    let mut norm_b = f32x8::ZERO;
+
+    // Process 8 elements at a time with SIMD
+    for i in 0..chunks {
+        let offset = i * 8;
+        let va = f32x8::from(&a[offset..offset + 8]);
+        let vb = f32x8::from(&b[offset..offset + 8]);
+        dot += va * vb;
+        norm_a += va * va;
+        norm_b += vb * vb;
+    }
+
+    // Reduce SIMD vectors to scalars
+    let arr_dot = dot.to_array();
+    let arr_na = norm_a.to_array();
+    let arr_nb = norm_b.to_array();
+
+    let mut dot_sum: f32 = arr_dot.iter().sum();
+    let mut na_sum: f32 = arr_na.iter().sum();
+    let mut nb_sum: f32 = arr_nb.iter().sum();
+
+    // Handle remaining elements (tail)
+    let remainder_start = chunks * 8;
+    for i in remainder_start..a.len() {
+        dot_sum += a[i] * b[i];
+        na_sum += a[i] * a[i];
+        nb_sum += b[i] * b[i];
+    }
+
+    let denominator = (na_sum * nb_sum).sqrt();
+    if denominator < f32::EPSILON {
+        0.0
+    } else {
+        dot_sum / denominator
+    }
+}
+
+#[inline]
+/// SIMD-optimized Euclidean similarity
+/// Returns value in (0, 1]
+pub fn euclidean_similarity(a: &[f32], b: &[f32]) -> f32 {
+    assert_eq!(a.len(), b.len(), "Vector dimensions must match");
+
+    let chunks = a.len() / 8;
+    let mut sum_sq = f32x8::ZERO;
+
+    for i in 0..chunks {
+        let offset = i * 8;
+        let va = f32x8::from(&a[offset..offset + 8]);
+        let vb = f32x8::from(&b[offset..offset + 8]);
+        let diff = va - vb;
+        sum_sq += diff * diff;
+    }
+
+    let arr = sum_sq.to_array();
+    let mut distance_sq: f32 = arr.iter().sum();
+
+    // Handle remainder
+    let remainder_start = chunks * 8;
+    for i in remainder_start..a.len() {
+        let diff = a[i] - b[i];
+        distance_sq += diff * diff;
+    }
+
+    1.0 / (1.0 + distance_sq.sqrt())
+}
+
+#[inline]
+/// SIMD-optimized raw dot product
+pub fn dot_product(a: &[f32], b: &[f32]) -> f32 {
+    assert_eq!(a.len(), b.len(), "Vector dimensions must match");
+
+    let chunks = a.len() / 8;
+    let mut sum = f32x8::ZERO;
+
+    for i in 0..chunks {
+        let offset = i * 8;
+        let va = f32x8::from(&a[offset..offset + 8]);
+        let vb = f32x8::from(&b[offset..offset + 8]);
+        sum += va * vb;
+    }
+
+    let arr = sum.to_array();
+    let mut total: f32 = arr.iter().sum();
+
+    // Handle remainder
+    let remainder_start = chunks * 8;
+    for i in remainder_start..a.len() {
+        total += a[i] * b[i];
+    }
+
+    total
+}
