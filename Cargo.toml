@@ -14,8 +14,12 @@ name = "hnsw_rs"
 path = "src/lib.rs"
 
 [dependencies]
-anyhow = "1.0.102"
-rayon = "1.11.0"
 wincode = { version = "0.5.1", features = ["derive"] }
 rand = "0.10.0"
+rayon = "1.11.0"
 wide = "1.2.0"
+anyhow = "1.0.102"
+memmap2 = "0.9.10"
+sha2 = "0.11.0"
+hex = "0.4.3"
+serde = { version = "1.0.228", features = ["derive"] }

@@ -36,6 +36,7 @@
 //!
 //! - `prelude`: Re-exports commonly used types and functions
 //! - `hnsw`: Core HNSW implementation
+//! - `storage`: IO operations for saving/loading the HNSW index to/from disk
 //! - `maths`: Similarity metric functions
 //! - `utils`: Utility functions for testing and benchmarking
 //!
@@ -48,11 +49,13 @@
 //!
 mod hnsw;
 mod maths;
+mod storage;
 mod utils;
 
 pub mod prelude {
     pub use crate::hnsw::*;
     pub use crate::maths::*;
+    pub use crate::storage::*;
     pub use crate::utils::{generate_random_vectors, get_random_bytes};
 }
 
