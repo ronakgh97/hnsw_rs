@@ -1,4 +1,3 @@
-use hnsw_rs::maths::Metrics;
 use hnsw_rs::prelude::*;
 
 #[test]

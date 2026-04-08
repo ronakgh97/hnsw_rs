@@ -1,9 +1,9 @@
 use crate::maths::{Metrics, cosine_similarity, dot_product, euclidean_similarity};
 use anyhow::Result;
 use rayon::iter::*;
-use serde::{Deserialize, Serialize};
 use std::cmp::Ordering;
 use std::collections::{BinaryHeap, HashMap, HashSet};
+use wincode::{SchemaRead, SchemaWrite};
 
 #[derive(Clone, Copy)]
 struct Candidate(NodeIndex, f32);
@@ -69,7 +69,27 @@ pub const DEFAULT_EF_INC_FACTOR: f32 = 1.275;
 /// **Search**: Greedy descent through upper layers, bounded search at bottom layer
 /// **Pruning**: Keep only M closest neighbors per node per layer
 /// **Tombstones**: Mark deleted nodes and skip during search, periodic cleanup & reindexing
-#[derive(Serialize, Deserialize, Debug, Clone)]
+///
+///
+///```
+///use hnsw_rs::prelude::*;
+///
+/// fn main() {
+///    let mut hnsw = HNSW::default();
+///
+///    let vectors = vec![vec![1.0, 0.0, 0.0],vec![1.41, 1.41, 0.0], vec![0.0, 1.0, 0.0], vec![0.0, 1.41, 1.41], vec![0.0, 0.0, 1.0]];
+///
+///    for (i, vector) in vectors.iter().enumerate() {
+///        let level_asg = hnsw.get_random_level();
+///        let metadata = format!("Node-{}", i).into_bytes();
+///        hnsw.insert(i.to_string(), vector, metadata, level_asg).unwrap();
+///    }
+///
+///    assert!(hnsw.nodes.len() == vectors.len());
+///    assert!(hnsw.search(&[1.0, 0.0, 0.0], 3, None).len() == 3);
+/// }
+///```
+#[derive(Debug, Clone, SchemaRead, SchemaWrite)]
 pub struct HNSW {
     /// All nodes in the graph, not layer-wise
     pub nodes: Vec<Node>,
@@ -120,6 +140,7 @@ impl HNSW {
 
     /// Generates a random level for a new node based on an exponential distribution uses the HNSW paper formula: floor(-ln(rand) * 1/ln(M))
     /// Used in [`insert`](HNSW::insert), or you may use your own distribution curve
+    #[inline]
     pub fn get_random_level(&self) -> usize {
         let r: f32 = rand::random::<f32>().max(1e-9);
         let m = 1.0 / (self.max_neighbors as f32).ln();
@@ -599,6 +620,7 @@ impl HNSW {
 
     #[inline]
     /// Returns the ratio of tombstoned nodes to total nodes
+    /// Can used in trigger when to clean up & reindex
     pub fn tombstone_ratio(&self) -> f32 {
         if self.nodes.is_empty() {
             0.0
@@ -649,7 +671,7 @@ impl HNSW {
         let mut new_id_mapper: HashMap<String, NodeIndex> =
             HashMap::with_capacity(self.active_count());
 
-        // First pass: copy active nodes and build ID mapping
+        // Copy active nodes and build ID mapping
         for (old_id, node) in self.nodes.iter().enumerate() {
             if !node.tombstone {
                 let new_id = new_nodes.len();
@@ -670,7 +692,7 @@ impl HNSW {
             }
         }
 
-        // Second pass: rebuild neighbor connections with new IDs
+        // Rebuild neighbor connections with new IDs
         for (old_id, node) in self.nodes.iter().enumerate() {
             if node.tombstone {
                 continue;
@@ -728,13 +750,13 @@ pub type NodeIndex = usize;
 /// It's just a string that user provides when inserting a node, and we map it to an array index internally for O(1) access)
 pub type NodeID = String;
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Debug, Clone, SchemaRead, SchemaWrite)]
 /// Represents a node in the HNSW graph.
 pub struct Node {
     /// node identifier - stable across reindexing
     pub node_id: NodeID,
     /// Metadata associated with the node
-    pub metadata: Vec<u8>, // TODO: Make it generic?
+    pub metadata: Vec<u8>, // TODO: Make it generic? or something else, because this can be a bottleneck
     /// Vector representation of the node, any dimensionality
     pub vector: Vec<f32>,
     /// Neighbors per layer, e.g `neighbors[0]` is the list of neighbors in layer 0

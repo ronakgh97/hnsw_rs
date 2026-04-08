@@ -1,8 +1,8 @@
-use serde::{Deserialize, Serialize};
 use wide::f32x8;
+use wincode::{SchemaRead, SchemaWrite};
 
 /// Supported similarity metrics for vector search
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, SchemaRead, SchemaWrite)]
 pub enum Metrics {
     Cosine,
     Euclidean,

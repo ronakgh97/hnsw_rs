@@ -1,4 +1,3 @@
-use hnsw_rs::maths::{cosine_similarity, dot_product, euclidean_similarity};
 use hnsw_rs::prelude::*;
 
 #[test]

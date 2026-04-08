@@ -3,10 +3,10 @@ The implementation is not directly based on the [original paper](https://arxiv.o
 by it. This implementation is simple and easy to understand, while still being *reasonably* efficient and scalable in
 future
 
-checkout this repo: [blaze-db](https://github.com/ronakgh97/blaze-db), which is a vector database built on top of this
+Checkout this repo: [blaze-db](https://github.com/ronakgh97/blaze-db), which is a vector database built on top of this
 HNSW implementation.
 
-ref:
+Ref:
 
 - https://arxiv.org/pdf/1603.09320
 - https://en.wikipedia.org/wiki/Curse_of_dimensionality
