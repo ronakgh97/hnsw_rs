@@ -2,39 +2,22 @@ use rand::rngs::SmallRng;
 use rand::{RngExt, SeedableRng};
 use rayon::prelude::*;
 
-/// Generates a random vector of given dimension with values in range `[-1.0, 1.0]`, still bad for similarity test due to high [dimensionality](https://en.wikipedia.org/wiki/Curse_of_dimensionality), but useful for benchmarking and testing
-/// `base_seed` is used to ensure reproducibility across runs. Each vector will have a different seed derived from `base_seed` to ensure different random values.
-/// > `parallel` can be significant for large `num` and `dimensions`, but for small sizes, the sequential version may be faster for better gains.
+/// Generates a random vector of given dimension with values in range `[-1.0, 1.0]`, still bad for similarity test due to high [dimensionality](https://en.wikipedia.org/wiki/Curse_of_dimensionality), but useful testing
+/// Returns a tuple of (generated vectors, final seed).
 #[inline]
-pub fn generate_random_vectors(
-    num: usize,
-    dimensions: usize,
-    base_seed: u64,
-    parallel: bool,
-) -> Vec<Vec<f32>> {
-    if parallel {
-        let mut result = vec![vec![0.0f32; dimensions]; num];
+pub fn gen_vec(num: usize, dim: usize, base_seed: u64) -> (Vec<Vec<f32>>, u64) {
+    let mut result = vec![vec![0.0f32; dim]; num];
 
-        result.par_iter_mut().enumerate().for_each(|(i, v)| {
-            let mut rng = SmallRng::seed_from_u64(base_seed.wrapping_add(i as u64));
-            for x in v {
-                *x = rng.random_range(-1.0..1.0);
-            }
-        });
-
-        return result;
-    }
-
-    let mut result = Vec::with_capacity(num);
-    for i in 0..num {
+    result.par_iter_mut().enumerate().for_each(|(i, v)| {
         let mut rng = SmallRng::seed_from_u64(base_seed.wrapping_add(i as u64));
-        let mut v = vec![0.0f32; dimensions];
-        for i in &mut v {
-            *i = rng.random_range(-1.0..1.0);
+        for x in v {
+            *x = rng.random_range(-1.0..1.0);
         }
-        result.push(v);
-    }
-    result
+    });
+
+    let final_seed = base_seed.wrapping_add(num as u64);
+
+    (result, final_seed)
 }
 
 /// Generates a random byte vector of given size, useful for testing with binary data or metadata.
@@ -45,46 +28,29 @@ pub fn get_random_bytes(size: u32) -> Vec<u8> {
     (0..size).map(|_| rng.random::<u8>()).collect()
 }
 
+/// Fills an existing buffer with random values in range `[-1.0, 1.0]`
+#[inline]
+pub fn gen_fill(buf: &mut [f64]) {
+    buf.par_iter_mut().for_each(|x| {
+        *x = fastrand::f64() * 2.0 - 1.0;
+    });
+}
+
 #[test]
 fn test_seed_generation() {
-    let num_vectors = 1000;
+    let num_vectors = 2048;
     let dimensions = 128;
     let base_seed = 42;
 
-    let vectors_sequential = generate_random_vectors(num_vectors, dimensions, base_seed, false);
-    let vectors_parallel = generate_random_vectors(num_vectors, dimensions, base_seed, true);
+    let (gen_1, _seed) = gen_vec(num_vectors, dimensions, base_seed);
+    let (gen_2, _seed) = gen_vec(num_vectors, dimensions, base_seed);
 
-    assert_eq!(vectors_parallel.len(), num_vectors);
-    assert_eq!(vectors_sequential.len(), num_vectors);
+    assert_eq!(gen_2.len(), num_vectors);
+    assert_eq!(gen_1.len(), num_vectors);
 
-    for (v1, v2) in vectors_sequential.iter().zip(vectors_parallel.iter()) {
+    for (v1, v2) in gen_1.iter().zip(gen_2.iter()) {
         assert_eq!(v1.len(), dimensions);
         assert_eq!(v2.len(), dimensions);
         assert_eq!(v1, v2); // Both methods should produce the same vectors with the same seed
     }
-}
-
-#[test]
-fn test_parallel() {
-    let num_vectors = 1024 * 1024;
-    let dimensions = 128;
-    let base_seed = 49;
-
-    let time_seq = std::time::Instant::now();
-    let vectors_sequential = generate_random_vectors(num_vectors, dimensions, base_seed, false);
-    let elapsed_seq = time_seq.elapsed();
-
-    let time_parallel = std::time::Instant::now();
-    let vectors_parallel = generate_random_vectors(num_vectors, dimensions, base_seed, true);
-    let elapsed_parallel = time_parallel.elapsed();
-
-    assert_eq!(vectors_parallel.len(), num_vectors);
-    assert_eq!(vectors_sequential.len(), num_vectors);
-    assert_eq!(vectors_sequential, vectors_parallel);
-
-    assert!(elapsed_seq > elapsed_parallel);
-    println!(
-        "Generated {} vectors of dimension {} in {:?} (sequential) vs {:?} (parallel)",
-        num_vectors, dimensions, elapsed_seq, elapsed_parallel
-    );
 }
