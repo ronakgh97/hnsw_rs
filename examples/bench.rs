@@ -23,7 +23,7 @@ enum BenchMetrics {
     RecallVaryingK,
 }
 
-#[allow(dead_code)]
+#[allow(unused)]
 struct BenchmarkResult {
     metrics: BenchMetrics,
     x_y: Vec<(f64, f64)>,
@@ -76,9 +76,8 @@ fn main() -> Result<()> {
 
         // Warm up
         {
-            #[allow(clippy::needless_range_loop)]
-            for i in 0..warmup_count {
-                let _ = hnsw.search(get_vector(&mmap, queries_idx[i], dim), 32, Some(64));
+            for query_vec in queries_idx.iter().take(warmup_count) {
+                let _ = hnsw.search(get_vector(&mmap, *query_vec, dim), 32, Some(64));
             }
         }
 
@@ -91,10 +90,9 @@ fn main() -> Result<()> {
             for &ef in &ef_values {
                 let time = Instant::now();
 
-                #[allow(clippy::needless_range_loop)]
-                for i in 0..query_count {
+                for query_vec in queries_idx.iter().take(query_count) {
                     // let idx = rng.random_range(0..num);
-                    let query_vec = get_vector(&mmap, queries_idx[i], dim);
+                    let query_vec = get_vector(&mmap, *query_vec, dim);
                     let _ = hnsw.search_internal(query_vec, k, ef);
                 }
                 let elapsed = time.elapsed();
@@ -118,10 +116,9 @@ fn main() -> Result<()> {
             for &k in &k_values {
                 let mut total_recall = 0.0f32;
 
-                #[allow(clippy::needless_range_loop)]
-                for i in 0..recall_sample {
+                for query_vec in queries_idx.iter().take(recall_sample) {
                     // let idx = rng.random_range(0..num);
-                    let query_vec = get_vector(&mmap, queries_idx[i], dim);
+                    let query_vec = get_vector(&mmap, *query_vec, dim);
                     let ef = k * 4;
                     let hnsw_search = hnsw.search(query_vec, k, Some(ef));
                     let brute_search = hnsw.brute_search(query_vec, k);
@@ -305,4 +302,14 @@ fn cache_index(num_vectors: usize, dim: usize, mmap: &Mmap) -> HNSW {
     println!("Index built in {:?} and cached to disk.", time.elapsed());
 
     hnsw
+}
+
+use plotters::prelude::*;
+
+#[allow(unused)]
+fn plot_bench(benchmark_result: Vec<BenchmarkResult>, output: PathBuf) -> Result<()> {
+    let root = BitMapBackend::new(&output, (800, 600)).into_drawing_area();
+    root.fill(&WHITE)?;
+
+    Ok(())
 }

@@ -24,7 +24,7 @@ pub fn gen_vec(num: usize, dim: usize, base_seed: u64) -> (Vec<Vec<f32>>, u64) {
 /// Generates a random byte vector of given size, useful for testing with binary data or metadata.
 /// Each call produces different random bytes. (no seed)
 #[inline]
-pub fn get_random_bytes(size: u32) -> Vec<u8> {
+pub fn gen_bytes(size: u32) -> Vec<u8> {
     let mut rng = rand::rng();
     (0..size).map(|_| rng.random::<u8>()).collect()
 }
@@ -35,6 +35,18 @@ pub fn gen_fill(buf: &mut [f64]) {
     buf.par_iter_mut().for_each(|x| {
         *x = fastrand::f64() * 2.0 - 1.0;
     });
+}
+
+#[inline(always)]
+/// Utility function to convert a slice of any type into a byte slice
+pub fn to_bytes<T>(data: &[T]) -> &[u8] {
+    unsafe { std::slice::from_raw_parts(data.as_ptr() as *const u8, size_of_val(data)) }
+}
+
+#[inline(always)]
+/// Utility function to convert a byte slice back into a reference of any type
+pub fn from_bytes<T: Copy>(data: &[u8]) -> T {
+    unsafe { *(data.as_ptr() as *const T) }
 }
 
 #[test]

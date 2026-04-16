@@ -17,7 +17,7 @@
 //! ];
 //!
 //! for (i, vector) in vectors.iter().enumerate() {
-//!     let level = hnsw.get_random_level(); // <-- (-rand.ln() * m).floor(), where is 1/M
+//!     let level = hnsw.get_random_level(); // <-- (-rand.ln() * mL).floor(), where mL is 1/ln(M)
 //!     hnsw.insert(i.to_string(), vector, vec![], level).unwrap();
 //! }
 //!
@@ -35,7 +35,7 @@
 //! ## Modules
 //!
 //! - `prelude`: Re-exports commonly used types and functions
-//! - `hnsw`: Core HNSW implementation
+//! - `hnsw`: Kernal HNSW implementation
 //! - `storage`: IO operations for saving/loading the HNSW index to/from disk
 //! - `maths`: Similarity metric functions
 //! - `utils`: Utility functions for testing and benchmarking
@@ -57,19 +57,21 @@ pub mod prelude {
     pub use crate::hnsw::*;
     pub use crate::maths::*;
     pub use crate::storage::*;
-    pub use crate::utils::{gen_fill, gen_vec, get_random_bytes};
+    pub use crate::utils::*;
 }
 
 #[test]
-fn basic_insert_test() {
+fn basic_hnsw_test() {
     use crate::prelude::*;
     let mut hnsw = HNSW::default();
-    let vectors = gen_vec(32, 128, 42);
+    let (vectors, _seed) = gen_vec(32, 128, 42);
 
-    for (i, vector) in vectors.0.iter().enumerate() {
+    for (i, vector) in vectors.iter().enumerate() {
         let level = hnsw.get_random_level();
         hnsw.insert(i.to_string(), vector, vec![], level).unwrap();
     }
+    assert_eq!(hnsw.count(), 32);
 
-    assert_eq!(hnsw.nodes.len(), 32);
+    hnsw.auto_fill(32).unwrap();
+    assert_eq!(hnsw.count(), 64);
 }
